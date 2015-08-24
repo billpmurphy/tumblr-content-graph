@@ -35,4 +35,4 @@ python content_graph.py you-have-just-experienced-things 2 4 example
 
 This generates the following graph:
 
-![Example](../master/example.svg?raw=true)
+![Example](https://rawgit.com/billpmurphy/tumblr-content-graph/master/example.svg)
