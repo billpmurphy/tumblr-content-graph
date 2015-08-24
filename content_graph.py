@@ -8,19 +8,24 @@ import graphviz
 import pytumblr
 
 
+max_posts = 1000 # the max number of posts to return when analyzing a blog
+delay_between_calls = 1 # the wait time between API calls in seconds
+
+
 def get_user_post_sources(client, blogname):
     offset = 0
     total_posts = 1
     while offset < total_posts:
-        time.sleep(1) # wait before each request to avoid being rate-limited
+        # wait before each request to avoid being rate-limited
+        time.sleep(delay_between_calls)
 
         posts = client.posts(blogname, offset=offset)
-        total_posts = posts['total_posts']
+        total_posts = min(posts['total_posts'], max_posts) # use n most recent
         offset += len(posts['posts'])
 
-        for post in posts['posts']:
-            if 'source_title' in post:
-                yield post['source_title']
+        for p in posts['posts']:
+            if 'source_title' in p and type(p["source_title"]) == unicode:
+                yield p['source_title']
     return
 
 
@@ -28,13 +33,15 @@ def get_top_n_sources(client, blogname, n):
     is_tumblr_source = lambda x: bool(re.match('^[A-Za-z0-9\-]+$', str(x)))
     sources = get_user_post_sources(client, blogname)
     sources = (s for s in sources if is_tumblr_source(s) and s != blogname)
-    return collections.Counter(sources).most_common(n)
+    p = collections.Counter(sources).most_common(n)
+    return p
 
 
 def build_graph(client, graph, blogname, num_sources, depth):
+    num_posts = str(min(client.posts(blogname)["total_posts"], max_posts))
     for source, n_posts in get_top_n_sources(client, blogname, num_sources):
         graph.node(source)
-        graph.edge(blogname, source, str(n_posts))
+        graph.edge(blogname, source, "{0}/{1}".format(str(n_posts), num_posts))
         if depth > 1:
             build_graph(client, graph, source, num_sources, depth-1)
     return
@@ -63,11 +70,10 @@ def main():
 
     # style the graph
     graph.graph_attr.update({'fontcolor': 'white', 'bgcolor': '#333333',
-                             'rankdir': 'BT', 'fontsize': '12'})
-    graph.node_attr.update({'fontname': 'Helvetica', 'shape': 'hexagon',
+                             'rankdir': 'BT', 'fontsize': '12',})
+    graph.node_attr.update({'fontname': 'Helvetica', 'fontsize': '14',
                             'fontcolor': 'white', 'color': 'white',
-                            'style': 'filled', 'fillcolor': '#006699',
-                            'fontsize': '14'})
+                            'style': 'filled', 'fillcolor': '#006699',})
     graph.edge_attr.update({'style': 'dashed', 'color': 'white',
                             'arrowhead': 'open', 'fontname': 'Courier',
                             'fontsize': '12', 'fontcolor': 'white'})
